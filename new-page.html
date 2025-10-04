@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Template Converter</title>
+    <meta name="description" content="Template1 -> Template2 converter" />
+    <style>
+      :root { color-scheme: light dark; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell,
+          Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background: Canvas;
+        color: CanvasText;
+      }
+      .container {
+        max-width: 960px;
+        margin: 12vh auto;
+        padding: 0 16px;
+      }
+      h1 { font-size: 2.25rem; margin: 0 0 0.5rem; }
+      p.lead { font-size: 1.125rem; margin: 0 0 1.25rem; opacity: 0.8; }
+      a.button {
+        display: inline-block;
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: #1f6feb;
+        color: white;
+        text-decoration: none;
+      }
+      a.button:focus-visible { outline: 3px solid #ffbf47; outline-offset: 2px; }
+      code { background: color-mix(in oklab, Canvas 85%, #888); padding: 0 6px; border-radius: 6px; }
+    </style>
+    <style>
+      fieldset { border: 1px solid color-mix(in oklab, CanvasText 20%, Canvas); border-radius: 10px; padding: 12px; margin: 16px 0; }
+      legend { opacity: 0.8; padding: 0 6px; }
+      label { display: block; font-weight: 600; margin: 6px 0; }
+      textarea, input[type="text"] {
+        width: 100%;
+        min-height: 120px;
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid color-mix(in oklab, CanvasText 20%, Canvas);
+        background: color-mix(in oklab, Canvas 95%, CanvasText 5%);
+        color: CanvasText;
+        font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        resize: vertical;
+      }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .row > * { min-width: 0; }
+      .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+      button {
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid color-mix(in oklab, CanvasText 20%, Canvas);
+        background: #1f6feb;
+        color: white;
+        cursor: pointer;
+      }
+      button.secondary { background: color-mix(in oklab, Canvas 85%, #1f6feb); color: CanvasText; }
+      .hint { font-size: 0.9rem; opacity: 0.8; }
+      .status { margin-top: 8px; min-height: 1.25rem; }
+      .status.error { color: #b00020; }
+      .status.ok { color: #0a7a28; }
+      .inline { display: inline-flex; align-items: center; gap: 8px; }
+      .small { font-size: 0.9rem; opacity: 0.8; }
+      .tight { min-height: 64px; }
+    </style>
+  </head>
+  <body>
+    <main class="container" role="main">
+      <h1>Template Converter</h1>
+      <p class="lead">Define Template 1 and Template 2 using placeholders like <code>{{field}}</code>. Paste a filled message that matches Template 1 and convert it into Template 2.</p>
+
+      <div class="row">
+        <fieldset>
+          <legend>Template 1 (input format)</legend>
+          <label for="template1">Template 1</label>
+          <textarea id="template1" placeholder="e.g. Name: {{name}}\nID: {{id}}\nMessage: {{message}}"></textarea>
+          <div class="hint small">Placeholders must be in double curly braces, for example <code>{{name}}</code>. All other text must match exactly.</div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Template 2 (output format)</legend>
+          <label for="template2">Template 2</label>
+          <textarea id="template2" placeholder="e.g. ID {{id}} - {{name}} wrote: {{message}}"></textarea>
+          <div class="actions">
+            <button type="button" id="loadExample" class="secondary">Load simple example</button>
+            <span class="small">Values captured from Template 1 will be inserted into Template 2 placeholders.</span>
+          </div>
+        </fieldset>
+      </div>
+
+      <fieldset>
+        <legend>Message input</legend>
+        <label for="messageInput">Paste or type the message that follows Template 1</label>
+        <textarea id="messageInput" class="tight" placeholder="Paste your message here..."></textarea>
+        <div class="actions">
+          <label class="inline small"><input type="checkbox" id="trimValues" checked /> Trim captured values</label>
+          <button type="button" id="convertBtn">Convert</button>
+          <button type="button" id="clearBtn" class="secondary">Clear</button>
+        </div>
+        <div id="status" class="status"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Output</legend>
+        <label for="output">Converted (Template 2)</label>
+        <textarea id="output" class="tight" readonly placeholder="Converted result will appear here..."></textarea>
+        <div class="actions">
+          <button type="button" id="copyBtn" class="secondary">Copy</button>
+        </div>
+      </fieldset>
+    </main>
+    <script>
+      (function() {
+        const t1El = document.getElementById('template1');
+        const t2El = document.getElementById('template2');
+        const msgEl = document.getElementById('messageInput');
+        const outEl = document.getElementById('output');
+        const statusEl = document.getElementById('status');
+        const convertBtn = document.getElementById('convertBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const loadExampleBtn = document.getElementById('loadExample');
+        const trimValuesEl = document.getElementById('trimValues');
+
+        const LS_KEYS = {
+          t1: 'tc.template1',
+          t2: 'tc.template2'
+        };
+
+        function saveTemplates() {
+          try {
+            localStorage.setItem(LS_KEYS.t1, t1El.value);
+            localStorage.setItem(LS_KEYS.t2, t2El.value);
+          } catch (_) {}
+        }
+        function loadTemplates() {
+          try {
+            const a = localStorage.getItem(LS_KEYS.t1);
+            const b = localStorage.getItem(LS_KEYS.t2);
+            if (a) t1El.value = a;
+            if (b) t2El.value = b;
+          } catch (_) {}
+          if (!t1El.value && !t2El.value) {
+            // Load a simple default
+            t1El.value = 'Name: {{name}}\nID: {{id}}\nMessage: {{message}}';
+            t2El.value = 'ID {{id}} - {{name}} wrote: {{message}}';
+          }
+        }
+
+        function escapeRegExp(str) {
+          return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function compilePattern(tpl) {
+          const names = [];
+          const tokenRe = /\{\{\s*([a-zA-Z_][\w]*)\s*\}\}/g;
+          let parts = [];
+          let idx = 0;
+          let m;
+          while ((m = tokenRe.exec(tpl)) !== null) {
+            const prev = tpl.slice(idx, m.index);
+            parts.push(escapeRegExp(prev));
+            const name = m[1];
+            names.push(name);
+            parts.push(`(?<${name}>[\\s\\S]+?)`);
+            idx = m.index + m[0].length;
+          }
+          parts.push(escapeRegExp(tpl.slice(idx)));
+          const pattern = '^' + parts.join('') + '$';
+          let re;
+          try {
+            re = new RegExp(pattern);
+          } catch (e) {
+            throw new Error('Failed to compile Template 1 into a pattern. Check your placeholders.');
+          }
+          return { re, names };
+        }
+
+        function renderTemplate(tpl, values) {
+          return tpl.replace(/\{\{\s*([a-zA-Z_][\w]*)\s*\}\}/g, (_, name) => {
+            return (values[name] ?? '');
+          });
+        }
+
+        function setStatus(msg, ok=false) {
+          statusEl.textContent = msg || '';
+          statusEl.className = 'status ' + (msg ? (ok ? 'ok' : 'error') : '');
+        }
+
+        function convert() {
+          setStatus('');
+          outEl.value = '';
+          const t1 = t1El.value;
+          const t2 = t2El.value;
+          const input = msgEl.value;
+          if (!t1.trim() || !t2.trim()) {
+            setStatus('Please provide both Template 1 and Template 2.', false);
+            return;
+          }
+          if (!input.trim()) {
+            setStatus('Please paste or type the message to convert.', false);
+            return;
+          }
+          try {
+            const { re, names } = compilePattern(t1);
+            const match = re.exec(input);
+            if (!match) {
+              setStatus('Message does not match Template 1. Ensure the fixed text is identical and placeholders align.', false);
+              return;
+            }
+            const values = {};
+            if (match.groups) {
+              for (const k of Object.keys(match.groups)) {
+                let v = match.groups[k] ?? '';
+                if (trimValuesEl.checked) v = v.trim();
+                values[k] = v;
+              }
+            } else {
+              // Fallback for environments without named groups
+              for (let i = 0; i < names.length; i++) {
+                let v = match[i+1] ?? '';
+                if (trimValuesEl.checked) v = v.trim();
+                values[names[i]] = v;
+              }
+            }
+            const result = renderTemplate(t2, values);
+            outEl.value = result;
+            setStatus('Converted successfully.', true);
+          } catch (e) {
+            setStatus(e.message || 'Conversion failed.', false);
+          }
+        }
+
+        function copyOut() {
+          if (!outEl.value) return;
+          outEl.select();
+          try {
+            document.execCommand('copy');
+            setStatus('Copied to clipboard.', true);
+          } catch (_) {
+            setStatus('Press Ctrl/Cmd+C to copy.', true);
+          }
+        }
+
+        function clearAll() {
+          msgEl.value = '';
+          outEl.value = '';
+          setStatus('');
+        }
+
+        loadTemplates();
+        t1El.addEventListener('input', saveTemplates);
+        t2El.addEventListener('input', saveTemplates);
+        convertBtn.addEventListener('click', convert);
+        copyBtn.addEventListener('click', copyOut);
+        clearBtn.addEventListener('click', clearAll);
+        loadExampleBtn.addEventListener('click', () => {
+          t1El.value = 'Name: {{name}}\nID: {{id}}\nMessage: {{message}}';
+          t2El.value = 'ID {{id}} - {{name}} wrote: {{message}}';
+          saveTemplates();
+        });
+      })();
+    </script>
+  </body>
+</html>
