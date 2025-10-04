@@ -4,7 +4,37 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Template Extractor</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <style>
+      :root{ --bg:#0f172a; --panel:#111827; --text:#e5e7eb; --muted:#94a3b8; --accent:#38bdf8; --accent-2:#f472b6; --border:#1f2937; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; }
+      *{ box-sizing:border-box; }
+      body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Helvetica Neue,Arial; background:var(--bg); color:var(--text); }
+      .app-header,.app-footer{ padding:16px 24px; background:linear-gradient(90deg,var(--panel),#0b1220); border-bottom:1px solid var(--border); }
+      .app-footer{ border-top:1px solid var(--border); border-bottom:none; }
+      .app-header h1{ margin:0 0 4px; font-size:20px; }
+      .layout{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; padding:16px; }
+      .panel{ background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; }
+      .dropzone{ border:2px dashed var(--border); border-radius:8px; padding:16px; text-align:center; color:var(--muted); }
+      textarea, input[type="text"], input[type="search"], input[type="file"], input[type="checkbox"], select{ width:100%; padding:10px; background:#0b1220; color:var(--text); border:1px solid var(--border); border-radius:8px; }
+      .controls{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:8px 0; }
+      button{ background:#0b1220; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px 12px; cursor:pointer; }
+      button.primary{ background:linear-gradient(90deg,var(--accent),var(--accent-2)); border:none; color:#001; font-weight:600; }
+      button.secondary{ opacity:0.8; }
+      button:hover{ border-color:var(--accent); }
+      .pre{ background:#0b1220; border:1px solid var(--border); padding:12px; border-radius:8px; white-space:pre-wrap; word-break:break-word; }
+      .mapper{ display:grid; gap:8px; }
+      .mapper-row{ display:grid; grid-template-columns: 160px 1fr; gap:8px; align-items:center; }
+      .badge{ display:inline-block; padding:2px 6px; border-radius:999px; font-size:12px; }
+      .badge.ok{ background:color-mix(in oklab, var(--ok) 30%, transparent); border:1px solid var(--ok); }
+      .badge.err{ background:color-mix(in oklab, var(--err) 30%, transparent); border:1px solid var(--err); }
+      .list{ list-style:none; padding:0; margin:0; display:grid; gap:8px; }
+      .list li{ padding:8px; border:1px solid var(--border); border-radius:8px; background:#0b1220; display:grid; gap:6px; }
+      .list .row{ display:flex; gap:8px; align-items:center; justify-content:space-between; }
+      .list .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; color:var(--muted); }
+      .list button{ padding:6px 10px; }
+      footer a{ color:var(--accent); }
+      details.guide { margin: 0 16px 16px; }
+      details.guide summary { cursor: pointer; color: var(--accent); }
+    </style>
   </head>
   <body>
     <header class="app-header">
@@ -58,10 +88,237 @@
       </section>
     </main>
 
+    <details class="guide" open>
+      <summary>Usage Guide</summary>
+      <section class="panel" style="margin-top:8px;">
+        <ol>
+          <li>Drop or paste Template 1 content into the first panel.</li>
+          <li>Review detected fields and adjust in the mapping panel.</li>
+          <li>Define Template 2 with <code>{{placeholders}}</code>.</li>
+          <li>Render preview and save. Saved entries persist in your browser.</li>
+        </ol>
+        <p>Supported inputs: text, HTML, JSON. PDFs/Docs should be converted to text before parsing.</p>
+      </section>
+    </details>
+
     <footer class="app-footer">
-      <a href="./readme.html">Usage Guide</a>
+      <span>One-file build. Data saved in localStorage.</span>
     </footer>
 
-    <script type="module" src="./main.js"></script>
+    <script>
+      const DEFAULT_TEMPLATE_2 = `Name: {{name}}\nEmail: {{email}}\nPhone: {{phone}}\nCompany: {{company}}\nAddress: {{address}}`;
+      const FIELD_KEYS = ["name", "email", "phone", "company", "address"];
+
+      function readFileAsText(file){
+        return new Promise((resolve,reject)=>{
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = reject;
+          reader.readAsText(file);
+        });
+      }
+      function cleanText(input){
+        return input
+          .replace(/\r/g, "\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+      }
+      function extractTextFromHtml(html){
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        return doc.body.textContent || "";
+      }
+      function parseMaybeJson(text){
+        try { return JSON.parse(text); } catch { return null; }
+      }
+      function flattenObject(object, prefix = ""){
+        const result = {};
+        for(const [key, value] of Object.entries(object || {})){
+          const path = prefix ? `${prefix}.${key}` : key;
+          if(value && typeof value === "object" && !Array.isArray(value)){
+            Object.assign(result, flattenObject(value, path));
+          } else {
+            result[path] = Array.isArray(value) ? value.join(", ") : String(value ?? "");
+          }
+        }
+        return result;
+      }
+      function guessFieldsFromText(text){
+        const output = {};
+        const patterns = {
+          name: /(name|full\s*name)\s*[:\-]?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})/i,
+          email: /([\w.+-]+@[\w-]+\.[\w.-]+)/i,
+          phone: /(phone|mobile|tel)\s*[:\-]?\s*([+]?\d[\d\s().-]{7,})/i,
+          company: /(company|organization|organisation|org)\s*[:\-]?\s*([\w .,&-]{2,})/i,
+          address: /(address)\s*[:\-]?\s*([\w\d ,.#\-\n]{8,})/i,
+        };
+        const lines = text.split(/\n+/);
+        for(const line of lines){
+          const l = line.trim();
+          if(!output.name){ const m = l.match(patterns.name); if(m){ output.name = m[2] || m[0]; }}
+          if(!output.email){ const m = l.match(patterns.email); if(m){ output.email = m[1]; }}
+          if(!output.phone){ const m = l.match(patterns.phone); if(m){ output.phone = (m[2] || m[0]).replace(/\s+/g, " ").trim(); }}
+          if(!output.company){ const m = l.match(patterns.company); if(m){ output.company = (m[2] || m[0]).trim(); }}
+        }
+        if(!output.address){
+          const m = text.match(patterns.address);
+          if(m){ output.address = (m[2] || m[0]).trim(); }
+        }
+        return output;
+      }
+      function renderTemplate(template, data){
+        return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key) => {
+          const value = key.split(".").reduce((acc, k) => acc && acc[k], data);
+          return value == null || value === "" ? "" : String(value);
+        });
+      }
+      function getSaved(){
+        try{ return JSON.parse(localStorage.getItem("template2_items") || "[]"); }catch{ return []; }
+      }
+      function setSaved(items){ localStorage.setItem("template2_items", JSON.stringify(items)); }
+      function populateSavedList(items){
+        const list = document.getElementById("savedList");
+        list.innerHTML = "";
+        const search = (document.getElementById("search").value || "").toLowerCase();
+        items
+          .filter(item => !search || JSON.stringify(item).toLowerCase().includes(search))
+          .forEach((item, idx) => {
+            const li = document.createElement("li");
+            const top = document.createElement("div"); top.className = "row";
+            const title = document.createElement("div");
+            title.textContent = item.fields.name || item.fields.email || `Entry ${idx+1}`;
+            const actions = document.createElement("div");
+            const copyBtn = document.createElement("button"); copyBtn.textContent = "Copy";
+            const delBtn = document.createElement("button"); delBtn.textContent = "Delete";
+            actions.append(copyBtn, delBtn); top.append(title, actions);
+            const mono = document.createElement("div"); mono.className = "mono";
+            mono.textContent = renderTemplate(item.template, item.fields);
+            copyBtn.addEventListener("click", async () => {
+              await navigator.clipboard.writeText(mono.textContent);
+              copyBtn.textContent = "Copied"; setTimeout(()=> copyBtn.textContent = "Copy", 900);
+            });
+            delBtn.addEventListener("click", () => {
+              const arr = getSaved(); arr.splice(idx,1); setSaved(arr); populateSavedList(arr);
+            });
+            li.append(top, mono); list.append(li);
+          });
+      }
+      function makeFieldMapper(fields){
+        const container = document.getElementById("fieldMapper");
+        container.innerHTML = "";
+        FIELD_KEYS.forEach(key => {
+          const row = document.createElement("div"); row.className = "mapper-row";
+          const label = document.createElement("label"); label.textContent = key;
+          const input = document.createElement("input"); input.placeholder = key; input.value = fields[key] || "";
+          input.id = `map-${key}`;
+          row.append(label, input); container.append(row);
+        });
+      }
+      function detectFieldsFromContent(content){
+        const asJson = parseMaybeJson(content);
+        if(asJson){
+          const flat = flattenObject(asJson);
+          const lower = Object.fromEntries(Object.entries(flat).map(([k,v]) => [k.toLowerCase(), v]));
+          const fields = {};
+          fields.name = lower["name"] || lower["full_name"] || lower["first_name last_name"] || "";
+          fields.email = lower["email"] || lower["contact.email"] || "";
+          fields.phone = lower["phone"] || lower["contact.phone"] || "";
+          fields.company = lower["company"] || lower["organization"] || lower["org.name"] || "";
+          fields.address = lower["address"] || lower["location.address"] || "";
+          return fields;
+        }
+        if(/<\w+[\s\S]*>/i.test(content)){
+          const text = cleanText(extractTextFromHtml(content));
+          return guessFieldsFromText(text);
+        }
+        return guessFieldsFromText(cleanText(content));
+      }
+      function wireEvents(){
+        const dropzone = document.getElementById("dropzone");
+        const fileInput = document.getElementById("fileInput");
+        const t1Input = document.getElementById("template1Input");
+        const parseBtn = document.getElementById("parseBtn");
+        const autoParse = document.getElementById("autoParse");
+        const detectedPre = document.getElementById("detectedFields");
+        const applyMappingBtn = document.getElementById("applyMappingBtn");
+        const clearBtn = document.getElementById("clearBtn");
+        const t2Editor = document.getElementById("template2Editor");
+        const preview = document.getElementById("preview");
+        const renderBtn = document.getElementById("renderBtn");
+        const saveBtn = document.getElementById("saveBtn");
+        const exportBtn = document.getElementById("exportBtn");
+        const importInput = document.getElementById("importInput");
+        t2Editor.value = DEFAULT_TEMPLATE_2;
+        function parseAndShow(content){
+          const fields = detectFieldsFromContent(content);
+          detectedPre.textContent = JSON.stringify(fields, null, 2);
+          makeFieldMapper(fields);
+        }
+        ["dragenter","dragover"].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add("hover"); }));
+        ["dragleave","drop"].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove("hover"); }));
+        dropzone.addEventListener("drop", async (e) => {
+          const files = Array.from(e.dataTransfer.files || []);
+          const contentParts = await Promise.all(files.map(readFileAsText));
+          const content = contentParts.join("\n\n");
+          t1Input.value = content;
+          if(autoParse.checked) parseAndShow(content);
+        });
+        fileInput.addEventListener("change", async () => {
+          const files = Array.from(fileInput.files || []);
+          const contentParts = await Promise.all(files.map(readFileAsText));
+          const content = contentParts.join("\n\n");
+          t1Input.value = content;
+          if(autoParse.checked) parseAndShow(content);
+        });
+        t1Input.addEventListener("paste", () => { setTimeout(() => { if(autoParse.checked) parseAndShow(t1Input.value); }, 0); });
+        parseBtn.addEventListener("click", () => parseAndShow(t1Input.value));
+        applyMappingBtn.addEventListener("click", () => {
+          const fields = {};
+          FIELD_KEYS.forEach(k => { fields[k] = document.getElementById(`map-${k}`).value.trim(); });
+          detectedPre.textContent = JSON.stringify(fields, null, 2);
+          preview.textContent = renderTemplate(t2Editor.value, fields);
+        });
+        clearBtn.addEventListener("click", () => {
+          t1Input.value = ""; detectedPre.textContent = ""; document.getElementById("fieldMapper").innerHTML = ""; preview.textContent = "";
+        });
+        renderBtn.addEventListener("click", () => {
+          try{
+            const fields = JSON.parse(detectedPre.textContent || "{}");
+            preview.textContent = renderTemplate(t2Editor.value, fields);
+          }catch{ preview.textContent = "Invalid detected fields JSON"; }
+        });
+        saveBtn.addEventListener("click", () => {
+          try{
+            const fields = JSON.parse(detectedPre.textContent || "{}");
+            const items = getSaved();
+            items.unshift({ template: t2Editor.value, fields, createdAt: new Date().toISOString() });
+            setSaved(items);
+            populateSavedList(items);
+          }catch{}
+        });
+        document.getElementById("search").addEventListener("input", () => populateSavedList(getSaved()));
+        exportBtn.addEventListener("click", () => {
+          const data = JSON.stringify(getSaved(), null, 2);
+          const blob = new Blob([data], {type: "application/json"});
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "template2-entries.json";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        });
+        importInput.addEventListener("change", async () => {
+          const file = importInput.files?.[0]; if(!file) return;
+          const text = await readFileAsText(file);
+          try{
+            const data = JSON.parse(text);
+            if(Array.isArray(data)){
+              setSaved(data.concat(getSaved()));
+              populateSavedList(getSaved());
+            }
+          }catch{}
+        });
+        populateSavedList(getSaved());
+      }
+      window.addEventListener("DOMContentLoaded", wireEvents);
+    </script>
   </body>
 </html>
