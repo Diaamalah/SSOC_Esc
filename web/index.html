@@ -22,16 +22,12 @@
       button:hover{ border-color:var(--accent); }
       .pre{ background:#0b1220; border:1px solid var(--border); padding:12px; border-radius:8px; white-space:pre-wrap; word-break:break-word; }
       .mapper{ display:grid; gap:8px; }
-      .mapper-row{ display:grid; grid-template-columns: 160px 1fr; gap:8px; align-items:center; }
-      .badge{ display:inline-block; padding:2px 6px; border-radius:999px; font-size:12px; }
-      .badge.ok{ background:color-mix(in oklab, var(--ok) 30%, transparent); border:1px solid var(--ok); }
-      .badge.err{ background:color-mix(in oklab, var(--err) 30%, transparent); border:1px solid var(--err); }
+      .mapper-row{ display:grid; grid-template-columns: 240px 1fr; gap:8px; align-items:center; }
       .list{ list-style:none; padding:0; margin:0; display:grid; gap:8px; }
       .list li{ padding:8px; border:1px solid var(--border); border-radius:8px; background:#0b1220; display:grid; gap:6px; }
       .list .row{ display:flex; gap:8px; align-items:center; justify-content:space-between; }
       .list .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; color:var(--muted); }
       .list button{ padding:6px 10px; }
-      footer a{ color:var(--accent); }
       details.guide { margin: 0 16px 16px; }
       details.guide summary { cursor: pointer; color: var(--accent); }
     </style>
@@ -39,7 +35,7 @@
   <body>
     <header class="app-header">
       <h1>Template Extractor</h1>
-      <p>Drop Template 1 here, map fields, and store as Template 2.</p>
+      <p>Drop Template 1, extract, and render Template 2 in the same design.</p>
     </header>
 
     <main class="layout">
@@ -47,18 +43,18 @@
         <h2>1) Drag & Drop Template 1</h2>
         <div id="dropzone" class="dropzone" tabindex="0" aria-label="Drop zone for Template 1">
           <p>Drop file(s) or paste content</p>
-          <input id="fileInput" type="file" accept=".txt,.html,.json,.md,.csv,.pdf,.doc,.docx" multiple />
+          <input id="fileInput" type="file" accept=".txt,.html,.json,.md,.csv" multiple />
         </div>
-        <textarea id="template1Input" placeholder="Or paste Template 1 content here..." rows="8"></textarea>
+        <textarea id="template1Input" placeholder="Paste Template 1 content here..." rows="14"></textarea>
         <div class="controls">
           <button id="parseBtn">Parse Template 1</button>
           <label><input type="checkbox" id="autoParse" checked /> Auto-parse on drop/paste</label>
         </div>
-        <pre id="detectedFields" class="pre"></pre>
+        <pre id="detectedFields" class="pre" aria-live="polite"></pre>
       </section>
 
       <section class="panel">
-        <h2>2) Map to Fields</h2>
+        <h2>2) Map to Placeholders (from Template 2)</h2>
         <div id="fieldMapper" class="mapper"></div>
         <div class="controls">
           <button id="applyMappingBtn">Apply Mapping</button>
@@ -68,7 +64,7 @@
 
       <section class="panel">
         <h2>3) Template 2</h2>
-        <textarea id="template2Editor" rows="10" placeholder="Define Template 2 here using {{placeholders}}...&#10;Example:&#10;Name: {{name}}&#10;Email: {{email}}&#10;Phone: {{phone}}"></textarea>
+        <textarea id="template2Editor" rows="24" placeholder="Define Template 2 here using {{placeholders}}..."></textarea>
         <div class="controls">
           <button id="renderBtn">Render Preview</button>
           <button id="saveBtn" class="primary">Save Entry</button>
@@ -92,12 +88,12 @@
       <summary>Usage Guide</summary>
       <section class="panel" style="margin-top:8px;">
         <ol>
-          <li>Drop or paste Template 1 content into the first panel.</li>
-          <li>Review detected fields and adjust in the mapping panel.</li>
-          <li>Define Template 2 with <code>{{placeholders}}</code>.</li>
-          <li>Render preview and save. Saved entries persist in your browser.</li>
+          <li>Paste Template 1 in the first panel and click Parse.</li>
+          <li>Placeholders are derived from Template 2 below; adjust values in the mapper.</li>
+          <li>Click Render Preview to print Template 2 with the provided design.</li>
+          <li>Save entries; they persist in your browser and can be exported.</li>
         </ol>
-        <p>Supported inputs: text, HTML, JSON. PDFs/Docs should be converted to text before parsing.</p>
+        <p>Fields not present in Template 1 are left blank for manual fill.</p>
       </section>
     </details>
 
@@ -106,9 +102,51 @@
     </footer>
 
     <script>
-      const DEFAULT_TEMPLATE_2 = `Name: {{name}}\nEmail: {{email}}\nPhone: {{phone}}\nCompany: {{company}}\nAddress: {{address}}`;
-      const FIELD_KEYS = ["name", "email", "phone", "company", "address"];
+      // --- Template 2 preset (your design) ---
+      const DEFAULT_TEMPLATE_2 = `Incident Category: [{{incident_category}}]
+Date report received: {{date_report_received}}
+Time report received: {{time_report_received}}
+Date of incident: {{date_of_incident}}
+Time of incident: {{time_of_incident}}
+Case status: {{case_status}}
+L4+ classification: {{l4_classification}}
+Key incident details: {{key_incident_details}}
+Incident type: {{incident_type}}
+City: {{city}}, Country: {{country}}
+Booking ID: {{booking_id}}
+Zendesk ticket ID: {{zendesk_ticket_id}}
+L4+ classification: {{l4_classification}}
+Reason: {{reason}}
+.........................................................................
+Captain history rating: {{captain_history_rating}} /
+Tenure : ( {{tenure_range}} )
+Trip count:
+MONTHLY / TOTAL TRIPS: {{trip_count_monthly}} / {{trip_count_total}}
+Captain safety history:
+SSOC related:
+{{captain_ssoc_related}}
+Not SSOC related:
+{{captain_not_ssoc_related}}
+Blocking Duration Completed
+{{captain_blocking_duration_completed}}
+acceptance_rate
+{{captain_acceptance_rate}}
+.........................................................................
+Customer history rating: {{customer_history_rating}}
+Trip count:
+Past 6 months: {{customer_trip_count_6m}}
+Customer history:
+previously blocked for underpayments? {{customer_prev_underpayments}}
+previous customer complains on captains? {{customer_prev_complaints_on_captains}}
+.........................................................................
+Customer investigation summary:
+{{customer_investigation_summary}}
+Action with customer: {{action_with_customer}}
+Captain investigation summary:
+{{captain_investigation_summary}}
+Action with captain: {{action_with_captain}}`;
 
+      // --- Utilities ---
       function readFileAsText(file){
         return new Promise((resolve,reject)=>{
           const reader = new FileReader();
@@ -118,52 +156,12 @@
         });
       }
       function cleanText(input){
-        return input
+        return (input || "")
           .replace(/\r/g, "\n")
+          .replace(/\t/g, " ")
+          .replace(/\u00A0/g, " ")
           .replace(/\n{3,}/g, "\n\n")
           .trim();
-      }
-      function extractTextFromHtml(html){
-        const doc = new DOMParser().parseFromString(html, "text/html");
-        return doc.body.textContent || "";
-      }
-      function parseMaybeJson(text){
-        try { return JSON.parse(text); } catch { return null; }
-      }
-      function flattenObject(object, prefix = ""){
-        const result = {};
-        for(const [key, value] of Object.entries(object || {})){
-          const path = prefix ? `${prefix}.${key}` : key;
-          if(value && typeof value === "object" && !Array.isArray(value)){
-            Object.assign(result, flattenObject(value, path));
-          } else {
-            result[path] = Array.isArray(value) ? value.join(", ") : String(value ?? "");
-          }
-        }
-        return result;
-      }
-      function guessFieldsFromText(text){
-        const output = {};
-        const patterns = {
-          name: /(name|full\s*name)\s*[:\-]?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})/i,
-          email: /([\w.+-]+@[\w-]+\.[\w.-]+)/i,
-          phone: /(phone|mobile|tel)\s*[:\-]?\s*([+]?\d[\d\s().-]{7,})/i,
-          company: /(company|organization|organisation|org)\s*[:\-]?\s*([\w .,&-]{2,})/i,
-          address: /(address)\s*[:\-]?\s*([\w\d ,.#\-\n]{8,})/i,
-        };
-        const lines = text.split(/\n+/);
-        for(const line of lines){
-          const l = line.trim();
-          if(!output.name){ const m = l.match(patterns.name); if(m){ output.name = m[2] || m[0]; }}
-          if(!output.email){ const m = l.match(patterns.email); if(m){ output.email = m[1]; }}
-          if(!output.phone){ const m = l.match(patterns.phone); if(m){ output.phone = (m[2] || m[0]).replace(/\s+/g, " ").trim(); }}
-          if(!output.company){ const m = l.match(patterns.company); if(m){ output.company = (m[2] || m[0]).trim(); }}
-        }
-        if(!output.address){
-          const m = text.match(patterns.address);
-          if(m){ output.address = (m[2] || m[0]).trim(); }
-        }
-        return output;
       }
       function renderTemplate(template, data){
         return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key) => {
@@ -171,9 +169,140 @@
           return value == null || value === "" ? "" : String(value);
         });
       }
-      function getSaved(){
-        try{ return JSON.parse(localStorage.getItem("template2_items") || "[]"); }catch{ return []; }
+      function getTemplatePlaceholders(template){
+        const set = new Set();
+        const re = /\{\{\s*([\w.]+)\s*\}\}/g; let m;
+        while((m = re.exec(template))){ set.add(m[1]); }
+        return Array.from(set);
       }
+      function fillMissingKeys(obj, keys){
+        const out = { ...obj }; keys.forEach(k => { if(!(k in out)) out[k] = ""; }); return out;
+      }
+      function formatDate(d){
+        const dt = d instanceof Date ? d : new Date(d);
+        const m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][dt.getMonth()];
+        return `${m} ${String(dt.getDate()).padStart(2,'0')}, ${dt.getFullYear()}`;
+      }
+      function formatTime(d){
+        const dt = d instanceof Date ? d : new Date(d);
+        let h = dt.getHours(); const m = String(dt.getMinutes()).padStart(2,'0'); const am = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${String(h).padStart(2,'0')}:${m} ${am}`;
+      }
+
+      // --- Template 1 specific parser ---
+      function sectionBetween(text, start, end){
+        const sidx = text.indexOf(start);
+        if(sidx === -1) return "";
+        const from = sidx + start.length;
+        if(!end) return text.slice(from);
+        const eidx = typeof end === 'string' ? text.indexOf(end, from) : text.slice(from).search(end);
+        if(eidx === -1) return text.slice(from);
+        return typeof end === 'string' ? text.slice(from, eidx) : text.slice(from, from + eidx);
+      }
+      function parseTemplate1Incident(raw){
+        const text = cleanText(raw);
+        const now = new Date();
+        const cap = sectionBetween(text, "*Captain Profile", "*Customer Profile");
+        const cust = sectionBetween(text, "*Customer Profile", "Actions Taken:");
+        const actions = sectionBetween(text, "Actions Taken:", "Requested for pair Blocking:");
+        const capAct = sectionBetween(actions, "Captain:", "Customer:");
+        const custAct = sectionBetween(actions, "Customer:", "Requested for pair Blocking:");
+
+        const fields = {
+          incident_category: "",
+          date_report_received: formatDate(now),
+          time_report_received: formatTime(now),
+          date_of_incident: "",
+          time_of_incident: "",
+          case_status: "Open",
+          l4_classification: "No",
+          key_incident_details: "",
+          incident_type: "",
+          city: "",
+          country: "",
+          booking_id: "",
+          zendesk_ticket_id: "",
+          reason: "",
+          captain_history_rating: "",
+          tenure_range: "",
+          trip_count_monthly: "",
+          trip_count_total: "",
+          captain_ssoc_related: "",
+          captain_not_ssoc_related: "",
+          captain_blocking_duration_completed: "",
+          captain_acceptance_rate: "",
+          customer_history_rating: "",
+          customer_trip_count_6m: "",
+          customer_prev_underpayments: "",
+          customer_prev_complaints_on_captains: "",
+          customer_investigation_summary: "",
+          action_with_customer: "",
+          captain_investigation_summary: "",
+          action_with_captain: "",
+        };
+
+        // Captain profile
+        const tripsM = cap.match(/Trips:\s*(\d+)\s*\/\s*(\d+)/i);
+        if(tripsM){ fields.trip_count_monthly = tripsM[1]; fields.trip_count_total = tripsM[2]; }
+        const tenureM = cap.match(/Tenure[\s\S]*?\(\s*(\d+)\s*-\s*(\d+)\s*\)/i);
+        if(tenureM){ fields.tenure_range = `${tenureM[1]} - ${tenureM[2]}`; }
+        const ratingM = cap.match(/Rating:\s*([0-9]+(?:\.[0-9]+)?)/i);
+        if(ratingM){ fields.captain_history_rating = ratingM[1]; }
+        const blockHistIdx = cap.indexOf("Block History");
+        if(blockHistIdx !== -1){
+          const after = cap.slice(blockHistIdx);
+          const lines = after.split(/\n+/).slice(1);
+          const items = [];
+          for(const ln of lines){
+            const stop = /Past Trips Rating|\*/i.test(ln); if(stop) break;
+            const t = ln.trim(); if(t) items.push(t);
+          }
+          const nonClear = items.filter(x => !/\bClear\b/i.test(x));
+          fields.captain_ssoc_related = nonClear.length ? nonClear.join("\n") : (items.length ? "All Clear" : "");
+        }
+
+        // Customer profile
+        const custRatingM = cust.match(/Rating of past trips:\s*([0-9]+(?:\.[0-9]+)?)/i);
+        if(custRatingM){ fields.customer_history_rating = custRatingM[1]; }
+        if(/Other complaints\/?claims sent:\s*Clear/i.test(cust)){ fields.customer_prev_complaints_on_captains = "No"; }
+        if(/Block History:\s*Clear/i.test(cust)){ fields.customer_prev_underpayments = "No"; }
+        if(/Other Zendesk Ticket\/?s[\s\S]*?:\s*none/i.test(cust)){ fields.zendesk_ticket_id = ""; }
+
+        // Actions taken
+        const capCallM = capAct.match(/Call Summary and Reaction:\s*([\s\S]*?)(?:\n|$)/i);
+        if(capCallM){ fields.captain_investigation_summary = capCallM[1].trim(); }
+        const capOtherM = capAct.match(/Other Actions:\s*([\s\S]*?)(?:\n|$)/i);
+        if(capOtherM){ fields.action_with_captain = capOtherM[1].trim(); }
+
+        const custCallM = custAct.match(/Call Summary and Reaction:\s*([\s\S]*?)(?:\n|$)/i);
+        if(custCallM){ fields.customer_investigation_summary = custCallM[1].trim(); }
+        const custOtherM = custAct.match(/Other Actions:\s*([\s\S]*?)(?:\n|$)/i);
+        if(custOtherM){ fields.action_with_customer = custOtherM[1].trim(); }
+
+        // Derive a brief key details and reason from customer summary
+        if(fields.customer_investigation_summary){
+          fields.key_incident_details = fields.customer_investigation_summary.slice(0, 140) + (fields.customer_investigation_summary.length > 140 ? '…' : '');
+          fields.reason = fields.customer_investigation_summary;
+        }
+
+        return fields;
+      }
+
+      // Fallback simple heuristics (kept for generic inputs)
+      function guessFieldsFromText(text){
+        return {};
+      }
+      function detectFieldsFromContent(content, placeholderKeys){
+        // Prefer Template 1 specific parsing if recognizable
+        if(/\*Captain Profile/i.test(content) && /\*Customer Profile/i.test(content)){
+          const parsed = parseTemplate1Incident(content);
+          return fillMissingKeys(parsed, placeholderKeys);
+        }
+        // Fallback: return empty object with keys
+        return fillMissingKeys({}, placeholderKeys);
+      }
+
+      // --- App wiring ---
+      function getSaved(){ try{ return JSON.parse(localStorage.getItem("template2_items") || "[]"); }catch{ return []; } }
       function setSaved(items){ localStorage.setItem("template2_items", JSON.stringify(items)); }
       function populateSavedList(items){
         const list = document.getElementById("savedList");
@@ -185,7 +314,7 @@
             const li = document.createElement("li");
             const top = document.createElement("div"); top.className = "row";
             const title = document.createElement("div");
-            title.textContent = item.fields.name || item.fields.email || `Entry ${idx+1}`;
+            title.textContent = item.fields.booking_id || item.fields.incident_type || item.fields.incident_category || `Entry ${idx+1}`;
             const actions = document.createElement("div");
             const copyBtn = document.createElement("button"); copyBtn.textContent = "Copy";
             const delBtn = document.createElement("button"); delBtn.textContent = "Delete";
@@ -202,37 +331,9 @@
             li.append(top, mono); list.append(li);
           });
       }
-      function makeFieldMapper(fields){
-        const container = document.getElementById("fieldMapper");
-        container.innerHTML = "";
-        FIELD_KEYS.forEach(key => {
-          const row = document.createElement("div"); row.className = "mapper-row";
-          const label = document.createElement("label"); label.textContent = key;
-          const input = document.createElement("input"); input.placeholder = key; input.value = fields[key] || "";
-          input.id = `map-${key}`;
-          row.append(label, input); container.append(row);
-        });
-      }
-      function detectFieldsFromContent(content){
-        const asJson = parseMaybeJson(content);
-        if(asJson){
-          const flat = flattenObject(asJson);
-          const lower = Object.fromEntries(Object.entries(flat).map(([k,v]) => [k.toLowerCase(), v]));
-          const fields = {};
-          fields.name = lower["name"] || lower["full_name"] || lower["first_name last_name"] || "";
-          fields.email = lower["email"] || lower["contact.email"] || "";
-          fields.phone = lower["phone"] || lower["contact.phone"] || "";
-          fields.company = lower["company"] || lower["organization"] || lower["org.name"] || "";
-          fields.address = lower["address"] || lower["location.address"] || "";
-          return fields;
-        }
-        if(/<\w+[\s\S]*>/i.test(content)){
-          const text = cleanText(extractTextFromHtml(content));
-          return guessFieldsFromText(text);
-        }
-        return guessFieldsFromText(cleanText(content));
-      }
+
       function wireEvents(){
+        let currentFieldKeys = [];
         const dropzone = document.getElementById("dropzone");
         const fileInput = document.getElementById("fileInput");
         const t1Input = document.getElementById("template1Input");
@@ -247,12 +348,37 @@
         const saveBtn = document.getElementById("saveBtn");
         const exportBtn = document.getElementById("exportBtn");
         const importInput = document.getElementById("importInput");
+
+        // Load Template 2 preset and placeholders
         t2Editor.value = DEFAULT_TEMPLATE_2;
+        currentFieldKeys = getTemplatePlaceholders(t2Editor.value);
+
+        function makeFieldMapper(fields){
+          const container = document.getElementById("fieldMapper");
+          container.innerHTML = "";
+          currentFieldKeys.forEach(key => {
+            const row = document.createElement("div"); row.className = "mapper-row";
+            const label = document.createElement("label"); label.textContent = key;
+            const input = document.createElement("input"); input.placeholder = key; input.value = fields[key] || "";
+            input.id = `map-${key}`;
+            row.append(label, input); container.append(row);
+          });
+        }
+
         function parseAndShow(content){
-          const fields = detectFieldsFromContent(content);
+          const fields = detectFieldsFromContent(content, currentFieldKeys);
           detectedPre.textContent = JSON.stringify(fields, null, 2);
           makeFieldMapper(fields);
+          preview.textContent = renderTemplate(t2Editor.value, fields);
         }
+
+        // Update mapper keys when Template 2 changes
+        t2Editor.addEventListener("input", () => {
+          currentFieldKeys = getTemplatePlaceholders(t2Editor.value);
+          try{ const fields = JSON.parse(detectedPre.textContent || "{}"); makeFieldMapper(fillMissingKeys(fields, currentFieldKeys)); }catch{}
+        });
+
+        // DnD + file input
         ["dragenter","dragover"].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add("hover"); }));
         ["dragleave","drop"].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove("hover"); }));
         dropzone.addEventListener("drop", async (e) => {
@@ -271,9 +397,11 @@
         });
         t1Input.addEventListener("paste", () => { setTimeout(() => { if(autoParse.checked) parseAndShow(t1Input.value); }, 0); });
         parseBtn.addEventListener("click", () => parseAndShow(t1Input.value));
+
+        // Mapping + Render
         applyMappingBtn.addEventListener("click", () => {
           const fields = {};
-          FIELD_KEYS.forEach(k => { fields[k] = document.getElementById(`map-${k}`).value.trim(); });
+          currentFieldKeys.forEach(k => { const el = document.getElementById(`map-${k}`); fields[k] = el ? el.value.trim() : ""; });
           detectedPre.textContent = JSON.stringify(fields, null, 2);
           preview.textContent = renderTemplate(t2Editor.value, fields);
         });
@@ -281,20 +409,13 @@
           t1Input.value = ""; detectedPre.textContent = ""; document.getElementById("fieldMapper").innerHTML = ""; preview.textContent = "";
         });
         renderBtn.addEventListener("click", () => {
-          try{
-            const fields = JSON.parse(detectedPre.textContent || "{}");
-            preview.textContent = renderTemplate(t2Editor.value, fields);
-          }catch{ preview.textContent = "Invalid detected fields JSON"; }
+          try{ const fields = JSON.parse(detectedPre.textContent || "{}"); preview.textContent = renderTemplate(t2Editor.value, fillMissingKeys(fields, currentFieldKeys)); }
+          catch{ preview.textContent = "Invalid detected fields JSON"; }
         });
-        saveBtn.addEventListener("click", () => {
-          try{
-            const fields = JSON.parse(detectedPre.textContent || "{}");
-            const items = getSaved();
-            items.unshift({ template: t2Editor.value, fields, createdAt: new Date().toISOString() });
-            setSaved(items);
-            populateSavedList(items);
-          }catch{}
-        });
+
+        // Save + Import/Export
+        function getSaved(){ try{ return JSON.parse(localStorage.getItem("template2_items") || "[]"); }catch{ return []; } }
+        function setSaved(items){ localStorage.setItem("template2_items", JSON.stringify(items)); }
         document.getElementById("search").addEventListener("input", () => populateSavedList(getSaved()));
         exportBtn.addEventListener("click", () => {
           const data = JSON.stringify(getSaved(), null, 2);
@@ -316,8 +437,10 @@
             }
           }catch{}
         });
+
         populateSavedList(getSaved());
       }
+
       window.addEventListener("DOMContentLoaded", wireEvents);
     </script>
   </body>
