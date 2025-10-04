@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Template Extractor</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>Template Extractor</h1>
+      <p>Drop Template 1 here, map fields, and store as Template 2.</p>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <h2>1) Drag & Drop Template 1</h2>
+        <div id="dropzone" class="dropzone" tabindex="0" aria-label="Drop zone for Template 1">
+          <p>Drop file(s) or paste content</p>
+          <input id="fileInput" type="file" accept=".txt,.html,.json,.md,.csv,.pdf,.doc,.docx" multiple />
+        </div>
+        <textarea id="template1Input" placeholder="Or paste Template 1 content here..." rows="8"></textarea>
+        <div class="controls">
+          <button id="parseBtn">Parse Template 1</button>
+          <label><input type="checkbox" id="autoParse" checked /> Auto-parse on drop/paste</label>
+        </div>
+        <pre id="detectedFields" class="pre"></pre>
+      </section>
+
+      <section class="panel">
+        <h2>2) Map to Fields</h2>
+        <div id="fieldMapper" class="mapper"></div>
+        <div class="controls">
+          <button id="applyMappingBtn">Apply Mapping</button>
+          <button id="clearBtn" class="secondary">Clear</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>3) Template 2</h2>
+        <textarea id="template2Editor" rows="10" placeholder="Define Template 2 here using {{placeholders}}...&#10;Example:&#10;Name: {{name}}&#10;Email: {{email}}&#10;Phone: {{phone}}"></textarea>
+        <div class="controls">
+          <button id="renderBtn">Render Preview</button>
+          <button id="saveBtn" class="primary">Save Entry</button>
+        </div>
+        <h3>Preview</h3>
+        <pre id="preview" class="pre"></pre>
+      </section>
+
+      <section class="panel">
+        <h2>Stored Template 2 Entries</h2>
+        <div class="controls">
+          <input id="search" placeholder="Search saved entries..." />
+          <button id="exportBtn" class="secondary">Export JSON</button>
+          <input id="importInput" type="file" accept="application/json" />
+        </div>
+        <ul id="savedList" class="list"></ul>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <a href="./readme.html">Usage Guide</a>
+    </footer>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
