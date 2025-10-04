@@ -30,6 +30,15 @@
       .list button{ padding:6px 10px; }
       details.guide { margin: 0 16px 16px; }
       details.guide summary { cursor: pointer; color: var(--accent); }
+
+      /* Print-only rules: print Template 2 preview cleanly */
+      @media print {
+        body { background:#fff; color:#000; }
+        .app-header, .app-footer, details.guide, .layout > .panel:not(#t2panel) { display: none !important; }
+        #t2panel { display:block !important; border: none; box-shadow: none; }
+        #t2panel h2, #t2panel .controls, #template2Editor { display: none !important; }
+        #preview { background:#fff; color:#000; border:none; white-space:pre; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 11pt; }
+      }
     </style>
   </head>
   <body>
@@ -62,11 +71,12 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="t2panel">
         <h2>3) Template 2</h2>
         <textarea id="template2Editor" rows="24" placeholder="Define Template 2 here using {{placeholders}}..."></textarea>
         <div class="controls">
           <button id="renderBtn">Render Preview</button>
+          <button id="printBtn" class="secondary">Print</button>
           <button id="saveBtn" class="primary">Save Entry</button>
         </div>
         <h3>Preview</h3>
@@ -345,6 +355,7 @@ Action with captain: {{action_with_captain}}`;
         const t2Editor = document.getElementById("template2Editor");
         const preview = document.getElementById("preview");
         const renderBtn = document.getElementById("renderBtn");
+        const printBtn = document.getElementById("printBtn");
         const saveBtn = document.getElementById("saveBtn");
         const exportBtn = document.getElementById("exportBtn");
         const importInput = document.getElementById("importInput");
@@ -411,6 +422,16 @@ Action with captain: {{action_with_captain}}`;
         renderBtn.addEventListener("click", () => {
           try{ const fields = JSON.parse(detectedPre.textContent || "{}"); preview.textContent = renderTemplate(t2Editor.value, fillMissingKeys(fields, currentFieldKeys)); }
           catch{ preview.textContent = "Invalid detected fields JSON"; }
+        });
+
+        // Print
+        printBtn.addEventListener("click", () => {
+          // Ensure preview is up to date before printing
+          try{
+            const fields = JSON.parse(detectedPre.textContent || "{}");
+            preview.textContent = renderTemplate(t2Editor.value, fillMissingKeys(fields, currentFieldKeys));
+          }catch{}
+          window.print();
         });
 
         // Save + Import/Export
