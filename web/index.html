@@ -294,6 +294,37 @@ Action with captain: {{action_with_captain}}`;
           fields.reason = fields.customer_investigation_summary;
         }
 
+        // Additional extractions requested
+        // Incident Category
+        const incCat1 = text.match(/Incident\s*Category\s*[:\-]?\s*\[?([^\]\n]+)\]?/i);
+        const incCat2 = text.match(/I:Category\s*\(\s*([^)]+)\s*\)/i);
+        if(incCat1){ fields.incident_category = incCat1[1].trim(); }
+        else if(incCat2){ fields.incident_category = incCat2[1].trim(); }
+
+        // Incident type (if present in Template 1)
+        const incidentTypeM = text.match(/Incident\s*type\s*[:\-]?\s*([^\n]+)/i);
+        if(incidentTypeM){ fields.incident_type = incidentTypeM[1].trim(); }
+
+        // City and Country
+        const cityCountryM = text.match(/City\s*:\s*([^,\n]+)\s*,\s*Country\s*:\s*([^\n]+)/i);
+        if(cityCountryM){
+          fields.city = cityCountryM[1].trim();
+          fields.country = cityCountryM[2].trim();
+        } else {
+          const cityM = text.match(/City\s*:\s*([^\n]+)/i);
+          const countryM = text.match(/Country\s*:\s*([^\n]+)/i);
+          if(cityM){ fields.city = cityM[1].trim(); }
+          if(countryM){ fields.country = countryM[1].trim(); }
+        }
+
+        // Booking ID (accept common variants)
+        const bookingM = text.match(/\bBooking\s*ID\s*[:\-]?\s*(\d{5,})\b/i) || text.match(/\bB\.?\s*ID\s*[:\-]?\s*(\d{4,})\b/i);
+        if(bookingM){ fields.booking_id = bookingM[1]; }
+
+        // Zendesk ticket ID (or generic ticket id)
+        const ticketM = text.match(/Zendesk\s*ticket\s*ID\s*[:\-]?\s*(\d{5,})\b/i) || text.match(/\bT\.?\s*ID\s*[:\-]?\s*(\d{4,})\b/i) || text.match(/Ticket\s*ID\s*[:\-]?\s*(\d{5,})\b/i);
+        if(ticketM){ fields.zendesk_ticket_id = ticketM[1]; }
+
         return fields;
       }
 
